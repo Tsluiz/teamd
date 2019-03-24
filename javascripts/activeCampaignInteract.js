@@ -1,4 +1,309 @@
 
+// main js //
+$(document).ready(
+    function () {
+        $('#tooltip-erja').darkTooltip();
+        $('#contacts_slider').hover(function () {
+                $(this).find('.slider-hint').fadeOut();
+            }
+            , function () {
+            });
+        $("#pricing-toggle a").click(function () {
+            term = $(this).data('term');
+            $("#pricing-toggle a").parent().removeClass('active');
+            $(this).parent().addClass('active');
+            $(".pricing_type span").text(term == 'yearly' ? "Yearly" : "Monthly");
+            var val = $("#contacts_slider").slider("value");
+            var lim = biggest_tier[val] ? biggest_tier[val].limit_sub : 999999999;
+            if (tiers.basic) tier_rebuild('basic', lim);
+            if (tiers.plus) tier_rebuild('plus', lim);
+            if (tiers.professional) tier_rebuild('professional', lim);
+            if (tiers.enterprise) tier_rebuild('enterprise', lim);
+            return false;
+        });
+        var starting_value = 0;
+        $("#contacts_slider").slider({
+            range: "min",
+            value: starting_value,
+            orientation: "horizontal",
+            min: 0,
+            max: biggest_tier.length,
+            animate: false,
+            slide: function (event, ui) {
+                var lim = biggest_tier[ui.value] ? biggest_tier[ui.value].limit_sub : 999999999;
+                if (tiers.basic) tier_rebuild('basic', lim);
+                if (tiers.plus) tier_rebuild('plus', lim);
+                if (tiers.professional) tier_rebuild('professional', lim);
+                if (tiers.enterprise) tier_rebuild('enterprise', lim);
+            }
+        });
+        //console.log( "ready!" );
+    });
+
+function _pricing_price_split(price) {
+    var str = price + '';
+    var arr = str.split(".");
+    if (!arr[1]) return price;
+    return number_format(parseInt(arr[0], 10), 0) + "<span class='cents'>." + arr[1] + "</span>";
+}
+
+function tier_rebuild(tier, limit_sub) {
+    var plan = find_plan_byvalue(tier, limit_sub);
+    var biggest = tiers[tier].plans[term][tiers[tier].plans[term].length - 1];
+    if (plan) {
+        var price = sprintf(priceformat, _pricing_price_split(plan.price_permonth_formatted_smart));
+        var pricelength = plan.price_permonth_formatted_smart.length + 1;
+        var contacts = plan.limit_sub_formatted;
+        var contactsfull = "Up to " + plan.limit_sub_formatted + " contacts";
+        var emails = plan.limit_mail ? plan.limit_mail_formatted + " monthly sending limit" : "Unlimited sending";
+        // var url = url_prefix + '/signup/?tier=' + tier + '&lim=' + plan.limit_sub;
+        var url = url_prefix + plan.signup_url;
+        // if (tier == 'enterprise') url += '&ent=1';
+        // if (plan.term == 12) url += '&yrly=1';
+        var txt = 'Sign Up Now';
+        if (pgipcuf) {
+            url = url_prefix + "/contact/";
+            txt = "Contact Us";
+            price = "";
+            pricelength = 0;
+        }
+    } else {
+        var price = "";
+        var pricelength = 0;
+        var contacts = "> " + biggest.limit_sub_formatted;
+        var contactsfull = "More than " + biggest.limit_sub_formatted + " contacts";
+        var emails = "Custom sending limit";
+        var url = url_prefix + "/contact/";
+        var txt = "Contact us";
+    }
+    if (tier == find_biggest_tier(true)) $(".contact_amount").html(contacts);
+    $("#tier_" + tier + "_contacts").html(contactsfull);
+    $("#tier_" + tier + "_signup").attr('href', url).html(txt);
+    $("#tier_" + tier + "_maillim").html(emails);
+    if (plan && !pgipcuf) {
+        $("#tier_" + tier + "_price").html(price);
+        if (pricelength >= 7) {
+            $("#tier_" + tier + "_price").addClass('long-price');
+        } else {
+            $("#tier_" + tier + "_price").removeClass('long-price');
+        }
+    }
+    $(".tier_pricebox_" + tier).toggle(!!plan && !pgipcuf);
+}
+
+function find_biggest_tier(return_name) {
+    var biggest_tier = null;
+    var biggest_ary = null;
+    var biggest_cnt = 0;
+    for (var t in tiers) {
+        if (!tiers[t].plans[term]) continue;
+        if (tiers[t].plans[term].length > biggest_cnt) {
+            biggest_cnt = tiers[t].plans[term].length;
+            biggest_ary = tiers[t].plans[term];
+            biggest_tier = t;
+        }
+    }
+    return return_name ? biggest_tier : biggest_ary;
+}
+
+function find_plan_byvalue(tier, limit_sub) {
+    var plans = tiers[tier].plans[term];
+    for (var i = 0; i < plans.length; i++) {
+        if (plans[i].limit_sub == limit_sub) return plans[i];
+    }
+    if (limit_sub < tiers[tier].plans[term][0].limit_sub) return tiers[tier].plans[term][0];
+    return false;
+}
+
+
+//(function ($) {
+function DarkTooltip(element, options) {
+    this.bearer = element;
+    this.options = options;
+    this.hideEvent;
+    this.mouseOverMode = (this.options.trigger == "hover" || this.options.trigger == "mouseover" || this.options.trigger == "onmouseover");
+}
+
+DarkTooltip.prototype = {
+    show: function () {
+        var dt = this;
+        this.tooltip.css('display', 'block');
+        if (dt.mouseOverMode) {
+            this.tooltip.mouseover(function () {
+                clearTimeout(dt.hideEvent);
+            });
+            this.tooltip.mouseout(function () {
+                clearTimeout(dt.hideEvent);
+                dt.hide();
+            });
+        }
+    }, hide: function () {
+        var dt = this;
+        this.hideEvent = setTimeout(function () {
+            dt.tooltip.hide();
+        }, 100);
+    }, toggle: function () {
+        if (this.tooltip.is(":visible")) {
+            this.hide();
+        } else {
+            this.show();
+        }
+    }, addAnimation: function () {
+        switch (this.options.animation) {
+            case 'none':
+                break;
+            case 'fadeIn':
+                this.tooltip.addClass('animated');
+                this.tooltip.addClass('fadeIn');
+                break;
+            case 'flipIn':
+                this.tooltip.addClass('animated');
+                this.tooltip.addClass('flipIn');
+                break;
+        }
+    }, setContent: function () {
+        $(this.bearer).css('cursor', 'pointer');
+        if (this.options.content) {
+            this.content = this.options.content;
+        } else if (this.bearer.attr("data-tooltip")) {
+            this.content = this.bearer.attr("data-tooltip");
+        } else {
+            return;
+        }
+        if (this.content.charAt(0) == '#') {
+            $(this.content).hide();
+            this.content = $(this.content).html();
+            this.contentType = 'html';
+        } else {
+            this.contentType = 'text';
+        }
+        this.tooltip = $("<ins class = 'dark-tooltip " + this.options.theme + " " + this.options.size + " "
+            + this.options.gravity + "'><div>" + this.content + "</div><div class = 'tip'></div></ins>");
+        this.tip = this.tooltip.find(".tip");
+        $("body").append(this.tooltip);
+        if (this.contentType == 'html') {
+            this.tooltip.css('max-width', 'none');
+        }
+        this.tooltip.css('opacity', this.options.opacity);
+        this.addAnimation();
+        if (this.options.confirm) {
+            this.addConfirm();
+        }
+    }, setPositions: function () {
+        var leftPos = this.bearer.offset().left;
+        var topPos = this.bearer.offset().top;
+        switch (this.options.gravity) {
+            case 'south':
+                leftPos += this.bearer.outerWidth() / 2 - this.tooltip.outerWidth() / 2;
+                topPos += -this.tooltip.outerHeight() - this.tip.outerHeight() / 2;
+                break;
+            case 'west':
+                leftPos += this.bearer.outerWidth() + this.tip.outerWidth() / 2;
+                topPos += this.bearer.outerHeight() / 2 - (this.tooltip.outerHeight() / 2);
+                break;
+            case 'north':
+                leftPos += this.bearer.outerWidth() / 2 - (this.tooltip.outerWidth() / 2);
+                topPos += this.bearer.outerHeight() + this.tip.outerHeight() / 2;
+                break;
+            case 'east':
+                leftPos += -this.tooltip.outerWidth() - this.tip.outerWidth() / 2;
+                topPos += this.bearer.outerHeight() / 2 - this.tooltip.outerHeight() / 2;
+                break;
+        }
+        this.tooltip.css('left', leftPos);
+        this.tooltip.css('top', topPos);
+    }, setEvents: function () {
+        var dt = this;
+        if (dt.mouseOverMode) {
+            this.bearer.mouseover(function () {
+                dt.setPositions();
+                dt.show();
+            }).mouseout(function () {
+                dt.hide();
+            });
+        } else if (this.options.trigger == "click" || this.options.trigger == "onclik") {
+            this.tooltip.click(function (e) {
+                e.stopPropagation();
+            });
+            this.bearer.click(function (e) {
+                e.preventDefault();
+                dt.setPositions();
+                dt.toggle();
+                e.stopPropagation();
+            });
+            $('html').click(function () {
+                dt.hide();
+            })
+        }
+    }, activate: function () {
+        this.setContent();
+        if (this.content) {
+            this.setEvents();
+        }
+    }, addConfirm: function () {
+        this.tooltip.append("<ul class = 'confirm'><li class = 'darktooltip-yes'>"
+            + this.options.yes + "</li><li class = 'darktooltip-no'>" + this.options.no + "</li></ul>");
+        this.setConfirmEvents();
+    }, setConfirmEvents: function () {
+        var dt = this;
+        this.tooltip.find('li.darktooltip-yes').click(function (e) {
+            dt.onYes();
+            e.stopPropagation();
+        });
+        this.tooltip.find('li.darktooltip-no').click(function (e) {
+            dt.onNo();
+            e.stopPropagation();
+        });
+    }, finalMessage: function () {
+        if (this.options.finalMessage) {
+            var dt = this;
+            dt.tooltip.find('div:first').html(this.options.finalMessage);
+            dt.tooltip.find('ul').remove();
+            dt.setPositions();
+            setTimeout(function () {
+                dt.hide();
+                dt.setContent();
+            }, dt.options.finalMessageDuration);
+        } else {
+            this.hide();
+        }
+    }, onYes: function () {
+        this.options.onYes(this.bearer);
+        this.finalMessage();
+    }, onNo: function () {
+        this.options.onNo(this.bearer);
+        this.hide();
+    }
+}
+$.fn.darkTooltip = function (options) {
+    this.each(function () {
+        options = $.extend({}, $.fn.darkTooltip.defaults, options);
+        var tooltip = new DarkTooltip($(this), options);
+        tooltip.activate();
+    });
+}
+$.fn.darkTooltip.defaults = {
+    opacity: 0.9,
+    content: '',
+    size: 'medium',
+    gravity: 'south',
+    theme: 'dark',
+    trigger: 'hover',
+    animation: 'none',
+    confirm: false,
+    yes: 'Yes',
+    no: 'No',
+    finalMessage: '',
+    finalMessageDuration: 1000,
+    onYes: function () {
+    },
+    onNo: function () {
+    }
+};
+// })(jQuery);
+
+
+
 //gen.min.js//
 
 
